@@ -1,0 +1,55 @@
+{
+  "appName": "Beer Hage",
+  "welcome": "Welcome",
+  "searchPlaceholder": "Search crops, tools, tips…",
+  "advisory": "Advisory",
+  "market": "Marketplace",
+  "community": "Community",
+  "scanner": "Scanner",
+  "analytics": "Analytics",
+  "weatherToday": "Today’s Weather",
+  "enableLocation": "Enable location",
+  "quickActions": "Quick actions",
+  "topProducts": "Top products",
+  "latestPosts": "Latest posts",
+  "profile": {
+    "title": "Profile",
+    "fullName": "Full name",
+    "phone": "Phone",
+    "email": "Email",
+    "role": "Role",
+    "language": "Language",
+    "save": "Save",
+    "saving": "Saving…",
+    "signOut": "Sign out",
+    "changePhoto": "Change photo",
+    "signedOutCta": "Please sign in to manage your profile.",
+    "signInButton": "Sign in / Create account",
+    "avatarUpdated": "Avatar updated",
+    "pressSaveNote": "Remember to press Save to store it in your profile.",
+    "uploadFailed": "Could not upload avatar",
+    "saved": "Profile updated",
+    "error": "Failed to save"
+  },
+
+  "aiAdvisory": {
+    "title": "AI Advisory",
+    "recommendations": "Get Recommendations",
+    "soil": {
+      "sandy": "Sandy",
+      "loam": "Loam",
+      "clay": "Clay",
+      "silty": "Silty"
+    },
+    "irrigation": {
+      "none": "None",
+      "drip": "Drip",
+      "sprinkler": "Sprinkler",
+      "flood": "Flood"
+    },
+    "areaHint": "e.g. 2.5",
+    "loading": "Loading recommendations...",
+    "error": "Failed to fetch AI response"
+  }
+
+}

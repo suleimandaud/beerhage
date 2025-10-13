@@ -1,0 +1,36 @@
+{
+  "appName": "بير هاغه",
+  "welcome": "مرحباً",
+  "searchPlaceholder": "ابحث عن محاصيل، أدوات، نصائح…",
+  "advisory": "الإرشاد",
+  "market": "السوق",
+  "community": "المجتمع",
+  "scanner": "المسّاح",
+  "analytics": "التحليلات",
+  "weatherToday": "طقس اليوم",
+  "enableLocation": "فعّل الموقع",
+  "quickActions": "إجراءات سريعة",
+  "topProducts": "أفضل المنتجات",
+  "latestPosts": "أحدث المنشورات",
+  "profile": {
+    "title": "الملف الشخصي",
+    "fullName": "الاسم الكامل",
+    "phone": "الهاتف",
+    "email": "البريد الإلكتروني",
+    "role": "الدور",
+    "language": "اللغة",
+    "save": "حفظ",
+    "saving": "جارٍ الحفظ...",
+    "signOut": "تسجيل الخروج",
+    "changePhoto": "تغيير الصورة",
+    "signedOutCta": "يرجى تسجيل الدخول لإدارة ملفك الشخصي.",
+    "signInButton": "تسجيل الدخول / إنشاء حساب",
+    "avatarUpdated": "تم تحديث الصورة الشخصية",
+    "pressSaveNote": "تذكر الضغط على حفظ لتخزينه في ملفك الشخصي.",
+    "uploadFailed": "فشل تحميل الصورة",
+    "saved": "تم تحديث الملف",
+    "error": "فشل الحفظ"
+  }
+
+  
+}
