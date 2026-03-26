@@ -23,7 +23,7 @@ export default function AdvisoryScreen() {
           </Text>
 
           <TouchableOpacity
-            onPress={() => nav.navigate('Auth')}
+            onPress={() => nav.navigate('AuthScreen')}
             style={{
               marginTop: 16,
               backgroundColor: colors.primary,
