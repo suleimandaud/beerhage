@@ -1,55 +1,74 @@
-import React from 'react';
-import { View, Text, Button } from 'react-native';
+// src/components/ProductCard.tsx
+import React, { useMemo } from 'react';
+import { View, Text, TouchableOpacity, Image } from 'react-native';
+import { colors } from '../theme/colors';
 
-type Product = {
-  id: number;
-  name: string;
-  price: number;
-  unit: string;
-  stock: number;
-  owner_id: string;
-};
+export default function ProductCard({ product, user, role, onPress }: any) {
+  const isOwner = product.company_user === user?.id;
 
-type User = {
-  id: string;
-};
+  const buttonText = role === 'admin'
+    ? 'Manage'
+    : role === 'company' && isOwner
+      ? 'Edit'
+      : 'Buy';
 
-type UserRole = 'admin' | 'company' | 'farmer';
-
-type ProductCardProps = {
-  product: Product;
-  user: User;
-  role: UserRole;
-  onPress: () => void;
-};
-
-export default function ProductCard({ product, user, role, onPress }: ProductCardProps) {
-  const isOwner = product.owner_id === user?.id;
+  const thumb = useMemo(() => {
+    const arr = Array.isArray(product?.images) ? product.images : [];
+    return arr[0] || null;
+  }, [product?.images]);
 
   return (
-    <View style={{
-      borderWidth: 1,
-      borderColor: '#e5e7eb',
-      padding: 12,
-      marginBottom: 16,
-      borderRadius: 8,
-      backgroundColor: '#fff'
-    }}>
-      <Text style={{ fontSize: 16, fontWeight: 'bold', marginBottom: 4 }}>{product.name}</Text>
-      <Text style={{ color: '#374151' }}>{product.price} / {product.unit}</Text>
-      <Text style={{ color: '#6b7280', marginBottom: 8 }}>Stock: {product.stock}</Text>
+    <View
+      style={{
+        backgroundColor: colors.card,
+        borderColor: colors.border,
+        borderWidth: 1,
+        borderRadius: 14,
+        padding: 14,
+        marginBottom: 12,
+        shadowColor: '#000',
+        shadowOpacity: 0.05,
+        shadowRadius: 5,
+        elevation: 2,
+      }}
+    >
+      <View style={{ flexDirection: 'row', gap: 12 }}>
+        {thumb ? (
+          <Image
+            source={{ uri: thumb }}
+            style={{ width: 64, height: 64, borderRadius: 12, backgroundColor: colors.border }}
+          />
+        ) : (
+          <View
+            style={{ width: 64, height: 64, borderRadius: 12, backgroundColor: colors.border, opacity: 0.6 }}
+          />
+        )}
 
-      {role === 'admin' && (
-        <Button title="Manage" onPress={onPress} />
-      )}
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontWeight: '800', fontSize: 16, color: colors.primary }}>
+            {product.name}
+          </Text>
+          <Text style={{ color: colors.text }}>
+            {product.price} SOS / {product.unit}
+          </Text>
+          <Text style={{ color: colors.muted, marginTop: 2 }}>
+            Stock: {product.stock}
+          </Text>
+        </View>
+      </View>
 
-      {role === 'company' && isOwner && (
-        <Button title="Edit" onPress={onPress} />
-      )}
-
-      {(role === 'farmer' || (role === 'company' && !isOwner)) && (
-        <Button title="Buy" onPress={onPress} />
-      )}
+      <TouchableOpacity
+        style={{
+          marginTop: 12,
+          backgroundColor: colors.primary,
+          borderRadius: 10,
+          paddingVertical: 10,
+          alignItems: 'center',
+        }}
+        onPress={onPress}
+      >
+        <Text style={{ color: '#fff', fontWeight: '700' }}>{buttonText}</Text>
+      </TouchableOpacity>
     </View>
   );
 }

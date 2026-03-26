@@ -14,6 +14,7 @@ export type Inputs = {
   lon?: number;
   soil: Soil;
   irrig: Irrig;
+  seed?: string | null; // ✅ New
   areaHa?: number | null;
   month?: number; // 1..12 (fallback if GPS not available)
 };
@@ -34,13 +35,13 @@ export function seasonFromMonth(m: number): Season {
   return 'Deyr'; // 10,11,12
 }
 
-// Mini crop knowledge base (extend freely)
+// Mini crop knowledge base
 const CATALOG = [
   {
     crop: 'Maize',
     seasons: ['Gu','Deyr'] as Season[],
     soils: ['loam','sandy'] as Soil[],
-    water: 'medium' as const,         // low / medium / high
+    water: 'medium' as const,
     tempRange: [18, 34] as [number, number],
     notes: 'Staple crop; avoid waterlogging; prefers 400–700 mm over season.'
   },
@@ -99,8 +100,13 @@ function scoreCrop(
   // Temperature
   if (typeof w.tempC === 'number') {
     const [tmin, tmax] = spec.tempRange;
-    if (w.tempC >= tmin && w.tempC <= tmax) { fit += 10; why.push(`Temp ${w.tempC}°C within ${tmin}–${tmax}°C`); }
-    else { fit -= 8; why.push(`Temp ${w.tempC}°C outside ${tmin}–${tmax}°C range`); }
+    if (w.tempC >= tmin && w.tempC <= tmax) {
+      fit += 10;
+      why.push(`Temp ${w.tempC}°C within ${tmin}–${tmax}°C`);
+    } else {
+      fit -= 8;
+      why.push(`Temp ${w.tempC}°C outside ${tmin}–${tmax}°C range`);
+    }
   }
 
   // Water need vs irrigation + rain
@@ -108,7 +114,6 @@ function scoreCrop(
   const waterNeed = spec.water;
   if (waterNeed === 'low') {
     if (irrig === 'none' || rain > 2) { fit += 8; why.push('Low water need suits your setup'); }
-    else if (irrig === 'drip') { fit += 4; }
   } else if (waterNeed === 'medium') {
     if (irrig === 'drip' || irrig === 'sprinkler' || rain > 2) { fit += 6; why.push('Medium water need covered by drip/sprinkler or rain'); }
     else { fit -= 5; why.push('Consider drip or schedule irrigation'); }
@@ -117,33 +122,29 @@ function scoreCrop(
     else { fit -= 8; why.push('Needs reliable irrigation (drip/sprinkler)'); }
   }
 
-  // Clamp 0..100
   fit = Math.max(0, Math.min(100, fit));
   return { fit, why };
 }
 
 function irrigationPlanText(irrig: Irrig, waterNeed: 'low'|'medium'|'high', rh?: number) {
   const humidity = rh ?? 60;
-  const base = waterNeed === 'low' ? 2 : waterNeed === 'medium' ? 4 : 6; // mm/day guideline
+  const base = waterNeed === 'low' ? 2 : waterNeed === 'medium' ? 4 : 6;
   const adj = humidity > 75 ? -1 : humidity < 40 ? +1 : 0;
   const mmDay = Math.max(1, base + adj);
 
-  if (irrig === 'none') {
+  if (irrig === 'none')
     return `Plan for rainfall only. Target ~${mmDay} mm/day equivalent by timing sowing with rainy weeks. Mulch to retain moisture.`;
-  }
-  if (irrig === 'drip') {
+  if (irrig === 'drip')
     return `Drip: ${mmDay}–${mmDay+1} mm/day split into 1–2 runs. Keep soil evenly moist; add fertigation weekly.`;
-  }
-  if (irrig === 'sprinkler') {
-    return `Sprinkler: ${mmDay+1}–${mmDay+2} mm/day in 1 run; avoid mid-day heat; watch leaf wetness for disease.`;
-  }
+  if (irrig === 'sprinkler')
+    return `Sprinkler: ${mmDay+1}–${mmDay+2} mm/day; avoid mid-day heat; watch leaf wetness for disease.`;
   return `Flood: ${mmDay+2}–${mmDay+3} mm/day equivalent; ensure drainage to avoid waterlogging.`;
 }
 
 export function recommendCrops(inputs: Inputs, weather: WeatherSnap): CropRec[] {
   const m = inputs.month ?? new Date().getMonth() + 1;
   const season = seasonFromMonth(m);
-  const { soil, irrig } = inputs;
+  const { soil, irrig, seed } = inputs;
 
   const scored = CATALOG.map((c) => {
     const s = scoreCrop(season, soil, irrig, weather, c);
@@ -161,5 +162,16 @@ export function recommendCrops(inputs: Inputs, weather: WeatherSnap): CropRec[] 
     } as CropRec;
   });
 
-  return scored.sort((a,b) => b.fit - a.fit).slice(0, 5);
+  const sorted = scored.sort((a,b) => b.fit - a.fit);
+
+  // ✅ If a seed is provided, evaluate it first
+  if (seed) {
+    const match = sorted.find(c => c.crop.toLowerCase() === seed.toLowerCase());
+    if (match) {
+      const alternatives = sorted.filter(c => c.crop !== match.crop).slice(0, 2);
+      return [match, ...alternatives];
+    }
+  }
+
+  return sorted.slice(0, 5);
 }

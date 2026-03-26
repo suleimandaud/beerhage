@@ -1,3 +1,4 @@
+// src/screens/Advisory/AIAdvisorScreen.tsx
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -10,18 +11,26 @@ import {
 } from 'react-native';
 import * as Location from 'expo-location';
 import { colors } from '../../theme/colors';
-import { type Soil, type Irrig, type CropRec, type WeatherSnap } from '../../lib/ai/advisor';
+import {
+  type Soil,
+  type Irrig,
+  type CropRec,
+  type WeatherSnap,
+  recommendCrops,
+} from '../../lib/ai/advisor';
 import { supabase } from '../../lib/supabase';
 
 export default function AIAdvisorScreen() {
   const [soil, setSoil] = useState<Soil>('loam');
   const [irrig, setIrrig] = useState<Irrig>('drip');
+  const [seed, setSeed] = useState<string>('maize');
   const [area, setArea] = useState('');
   const [coords, setCoords] = useState<{ lat?: number; lon?: number }>({});
   const [weather, setWeather] = useState<WeatherSnap>({});
   const [busy, setBusy] = useState(false);
   const [recs, setRecs] = useState<CropRec[]>([]);
 
+  // ---------- LOCATION + WEATHER ----------
   useEffect(() => {
     (async () => {
       setBusy(true);
@@ -54,37 +63,69 @@ export default function AIAdvisorScreen() {
     })();
   }, []);
 
+  // ---------- MAIN AI LOGIC ----------
   const run = async () => {
     const areaHa = area ? Number(area) : undefined;
     setBusy(true);
 
-    const prompt = `Given the following farm conditions:\n\n- Soil: ${soil}\n- Irrigation: ${irrig}\n- Area: ${areaHa ?? 'not specified'} ha\n- Weather: ${weather.tempC ?? '-'}°C, ${weather.rh ?? '-'}% RH, ${weather.rainMm ?? '-'}mm rain\n\nSuggest 3 best crops with fit percentage, reasons, sowing window, and irrigation plan. Format response as JSON array with keys: crop, fit, reason, sowingWindow, irrigationPlan.`;
+    const prompt = `Given the following farm conditions:
+- Soil: ${soil}
+- Irrigation: ${irrig}
+- Area: ${areaHa ?? 'not specified'} ha
+- Weather: ${weather.tempC ?? '-'}°C, ${weather.rh ?? '-'}% RH, ${weather.rainMm ?? '-'}mm rain
+- Seed: ${seed}
+
+Provide an analysis for this seed: Is it suitable under these conditions?
+If suitable, return fit percentage, reasons, sowing window, and irrigation plan.
+If unsuitable, suggest 2 alternative crops that fit better.
+Return valid JSON array with keys: crop, fit, reason, sowingWindow, irrigationPlan.`;
 
     try {
-      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      const res = await fetch('https://ovxqseavtfhtabmrafgn.functions.supabase.co/advice', {
         method: 'POST',
-        headers: {
-          'Authorization': 'Bearer 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', // Replace with valid OpenRouter key
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'openai/gpt-3.5-turbo',
-          messages: [{ role: 'user', content: prompt }],
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt }),
       });
 
       const data = await res.json();
+      let parsed: CropRec[] = [];
 
-      const content = data?.choices?.[0]?.message?.content;
-      if (!content) {
-        console.error('Missing AI response content:', data);
-        throw new Error('Empty AI response');
+      try {
+        const content = data?.choices?.[0]?.message?.content;
+        if (content && typeof content === 'string') {
+          try {
+            // ✅ Extract only the JSON part even if the AI returns text or markdown
+            const match = content.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+            if (match) {
+              parsed = JSON.parse(match[0]);
+            } else {
+              throw new Error('No JSON structure found');
+            }
+          } catch (err) {
+            console.warn('⚠️ AI parse error, fallback used:', err);
+            parsed = recommendCrops(
+              { soil, irrig, lat: coords.lat, lon: coords.lon, areaHa: areaHa ?? null, seed },
+              weather
+            );
+          }
+        } else {
+          console.warn('⚠️ Empty AI response, using local fallback.');
+          parsed = recommendCrops(
+            { soil, irrig, lat: coords.lat, lon: coords.lon, areaHa: areaHa ?? null, seed },
+            weather
+          );
+        }
+      } catch (parseErr) {
+        console.warn('⚠️ AI parse error, fallback used:', parseErr);
+        parsed = recommendCrops(
+          { soil, irrig, lat: coords.lat, lon: coords.lon, areaHa: areaHa ?? null, seed },
+          weather
+        );
       }
 
-      const parsed = JSON.parse(content);
       setRecs(parsed);
 
-      // Optional: Save to Supabase history
+      // ---------- Save history ----------
       const { data: u } = await supabase.auth.getUser();
       if (u.user?.id) {
         await supabase.from('advice_history').insert({
@@ -93,6 +134,7 @@ export default function AIAdvisorScreen() {
           lon: coords.lon,
           soil,
           irrig,
+          seed,
           area_ha: areaHa ?? null,
           weather,
           recommendations: parsed,
@@ -106,6 +148,7 @@ export default function AIAdvisorScreen() {
     }
   };
 
+  // ---------- UI ----------
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ padding: 16 }}>
       <Text style={{ fontSize: 22, fontWeight: '800' }}>AI Advisory</Text>
@@ -121,6 +164,10 @@ export default function AIAdvisorScreen() {
 
       <Field label="Irrigation">
         <RowChips value={irrig} options={irrigOpts} onChange={(v) => setIrrig(v as Irrig)} />
+      </Field>
+
+      <Field label="Seed you have">
+        <RowChips value={seed} options={seedOpts} onChange={setSeed} />
       </Field>
 
       <Field label="Area (ha) – optional">
@@ -154,9 +201,9 @@ export default function AIAdvisorScreen() {
 
       {!!recs.length && (
         <View style={{ marginTop: 16, gap: 12 }}>
-          {recs.map((r) => (
+          {recs.map((r, i) => (
             <View
-              key={r.crop}
+              key={`${r.crop}-${i}`}
               style={{
                 backgroundColor: '#fff',
                 borderRadius: 14,
@@ -165,12 +212,20 @@ export default function AIAdvisorScreen() {
                 borderColor: colors.border,
               }}
             >
-              <Text style={{ fontSize: 16, fontWeight: '800' }}>{r.crop} · {r.fit}% fit</Text>
-              <Text style={{ color: '#6b7280', marginTop: 4 }}>{r.reason}</Text>
+              <Text style={{ fontSize: 16, fontWeight: '800' }}>
+                {(r.crop ?? 'Unknown Crop')} · {(r.fit ?? 0)}% fit
+              </Text>
+              <Text style={{ color: '#6b7280', marginTop: 4 }}>
+                {typeof r.reason === 'string' ? r.reason : 'No reason available'}
+              </Text>
               <Text style={{ marginTop: 8, fontWeight: '700' }}>Sowing window</Text>
-              <Text style={{ color: '#374151' }}>{r.sowingWindow}</Text>
+              <Text style={{ color: '#374151' }}>
+                {typeof r.sowingWindow === 'string' ? r.sowingWindow : '—'}
+              </Text>
               <Text style={{ marginTop: 8, fontWeight: '700' }}>Irrigation plan</Text>
-              <Text style={{ color: '#374151' }}>{r.irrigationPlan}</Text>
+              <Text style={{ color: '#374151' }}>
+                {typeof r.irrigationPlan === 'string' ? r.irrigationPlan : '—'}
+              </Text>
             </View>
           ))}
         </View>
@@ -179,6 +234,7 @@ export default function AIAdvisorScreen() {
   );
 }
 
+// ---------- Helpers ----------
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <View style={{ marginTop: 14 }}>
@@ -214,7 +270,9 @@ function RowChips({
               borderColor: active ? colors.primary : colors.border,
             }}
           >
-            <Text style={{ color: active ? '#fff' : colors.primary, fontWeight: '700' }}>{o.label}</Text>
+            <Text style={{ color: active ? '#fff' : colors.primary, fontWeight: '700' }}>
+              {o.label}
+            </Text>
           </TouchableOpacity>
         );
       })}
@@ -234,6 +292,14 @@ const irrigOpts = [
   { key: 'drip', label: 'Drip' },
   { key: 'sprinkler', label: 'Sprinkler' },
   { key: 'flood', label: 'Flood' },
+];
+
+const seedOpts = [
+  { key: 'maize', label: 'Maize' },
+  { key: 'sorghum', label: 'Sorghum' },
+  { key: 'sesame', label: 'Sesame' },
+  { key: 'tomato', label: 'Tomato' },
+  { key: 'onion', label: 'Onion' },
 ];
 
 const input = {
