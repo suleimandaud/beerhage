@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import { MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -27,6 +28,21 @@ type PostRow = {
   images?: string[];
   ai_reply?: string | null;
 };
+
+function timeAgo(date: string) {
+  const diffMs = Date.now() - new Date(date).getTime();
+  const mins = Math.max(1, Math.floor(diffMs / (1000 * 60)));
+  if (mins < 60) return `${mins}m`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d`;
+}
+
+function formatCount(n: number) {
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
+  return `${n}`;
+}
 
 async function fetchPosts(): Promise<PostRow[]> {
   const { data, error } = await supabase
@@ -336,21 +352,66 @@ export default function CommunityScreen() {
           renderItem={({ item }) => (
             <View
               style={{
-                padding: 12,
-                backgroundColor: '#fff',
-                borderRadius: 12,
+                backgroundColor: '#1F2228',
+                borderRadius: 14,
                 borderWidth: 1,
-                borderColor: colors.border,
-                marginBottom: 10,
+                borderColor: '#2C313A',
+                marginBottom: 14,
+                overflow: 'hidden',
               }}
             >
-              <Text style={{ fontWeight: '700' }}>{item.author ?? 'Farmer'}</Text>
-              <Text style={{ marginTop: 4 }}>{item.text}</Text>
+              {/* Header */}
+              <View style={{ paddingHorizontal: 12, paddingTop: 12, paddingBottom: 8 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <View
+                    style={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: 22,
+                      backgroundColor: '#334155',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Text style={{ color: '#fff', fontWeight: '800' }}>
+                      {(item.author ?? 'Farmer').slice(0, 1).toUpperCase()}
+                    </Text>
+                  </View>
+
+                  <View style={{ marginLeft: 10, flex: 1 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={{ color: '#F9FAFB', fontWeight: '800', fontSize: 16 }}>
+                        {item.author ?? 'Farmer'}
+                      </Text>
+                      <MaterialCommunityIcons name="check-decagram" size={16} color="#3B82F6" />
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+                      <Text style={{ color: '#9CA3AF' }}>{timeAgo(item.created_at)} · </Text>
+                      <MaterialCommunityIcons name="earth" size={12} color="#9CA3AF" />
+                      <Text style={{ color: '#9CA3AF' }}> Public</Text>
+                    </View>
+                  </View>
+
+                  <View style={{ flexDirection: 'row', gap: 10 }}>
+                    <Feather name="more-horizontal" size={20} color="#E5E7EB" />
+                    <Feather name="x" size={20} color="#E5E7EB" />
+                  </View>
+                </View>
+
+                <Text style={{ marginTop: 10, color: '#F3F4F6', fontSize: 17, lineHeight: 26 }}>
+                  {item.text}
+                </Text>
+              </View>
 
               {!!item.images?.length && (
-                <View style={{ flexDirection: 'row', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-                  {item.images.map((url) => (
-                    <Image key={url} source={{ uri: url }} style={{ width: 110, height: 110, borderRadius: 10 }} />
+                <View>
+                  {item.images.slice(0, 1).map((url) => (
+                    <Image
+                      key={url}
+                      source={{ uri: url }}
+                      style={{ width: '100%', height: 360, backgroundColor: '#0F172A' }}
+                      resizeMode="cover"
+                    />
                   ))}
                 </View>
               )}
@@ -358,22 +419,44 @@ export default function CommunityScreen() {
               {item.ai_reply ? (
                 <View
                   style={{
-                    marginTop: 10,
-                    backgroundColor: '#F4FAF5',
+                    margin: 10,
+                    backgroundColor: '#152A1A',
                     borderRadius: 10,
                     padding: 10,
                     borderWidth: 1,
-                    borderColor: '#E0F0E4',
+                    borderColor: '#23412D',
                   }}
                 >
                   <Text style={{ fontWeight: '700', color: colors.primary }}>AI Advisor</Text>
-                  <Text style={{ marginTop: 4 }}>{item.ai_reply}</Text>
+                  <Text style={{ marginTop: 4, color: '#E5E7EB' }}>{item.ai_reply}</Text>
                 </View>
               ) : null}
 
-              <Text style={{ color: colors.muted, marginTop: 6 }}>
-                {new Date(item.created_at).toLocaleString()}
-              </Text>
+              {/* Footer actions */}
+              <View
+                style={{
+                  borderTopWidth: 1,
+                  borderTopColor: '#2C313A',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  paddingHorizontal: 14,
+                  paddingVertical: 10,
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <MaterialCommunityIcons name="thumb-up-outline" size={28} color="#D1D5DB" />
+                  <Text style={{ color: '#D1D5DB', fontSize: 16 }}>{formatCount((item.id * 137) % 9800)}</Text>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <MaterialCommunityIcons name="comment-outline" size={28} color="#D1D5DB" />
+                  <Text style={{ color: '#D1D5DB', fontSize: 16 }}>{(item.id * 29) % 1200}</Text>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <MaterialCommunityIcons name="share-outline" size={28} color="#D1D5DB" />
+                  <Text style={{ color: '#D1D5DB', fontSize: 16 }}>{(item.id * 11) % 500}</Text>
+                </View>
+              </View>
             </View>
           )}
         />
